@@ -98,30 +98,43 @@ namespace BSF
 
     // to analyse the similarity between columns of lib matrix (with chunks)
     // compare between [x1:x2] and [x1:x2]
+    // Modified to return Jaccard similarity
     unsigned BSFCore::analysis_with_chunks(const uint64_t** lib, unsigned** c, const unsigned x1, const unsigned x2, const unsigned nrow)
     {
         unsigned size = (nrow / 64);
         unsigned k, i, j;
         uint64_t _sim;
+        uint64_t _lor;
         unsigned count = 0;
+        unsigned lcount = 0;
+        float jacc = 0;
 
         #ifdef _OPENMP
-        printf("==================OPENMP========analysis_with_chunks1============\n");
+        printf("==================OPENMP========analysis_with_chunks-Jaccard============\n");
         #pragma omp parallel num_threads(NUM_THREADS)
-        #pragma omp for private(_sim, i, j) schedule(dynamic) reduction(+:count)
+        #pragma omp for private(_sim, _lor, i, j) schedule(dynamic) reduction(+:count), reduction(+:lcount)
         #endif
         for( k = x1; k < x2 - 1; k++) {
             for ( i = k+1; i < x2; i++) {
                 count = 0;
+                lcount = 0;
                 for ( j = 0; j < size; j++) {
                     _sim = sim(lib[i][j], lib[k][j]);
+                    _lor = (lib[i][j]|lib[k][j]);
                     count += __builtin_popcountll(_sim);
+                    lcount += __builtin_popcountll(_lor);
                 }
-                c[k-x1][i-x1] = count;
+
+                // this should return an integer between 0 and 100
+                // that represents a Jaccard similarity * 100
+                jacc = ((float)count/(float)lcount)*100.0;
+
+                c[k-x1][i-x1] = (int)jacc;
             }
         }
         return 0;
     }
+
 
     // to analyse the similarity between columns of lib matrix (with chunks)
     // compare between [x1:x2] and [y1:y2]
